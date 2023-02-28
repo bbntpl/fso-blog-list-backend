@@ -1,3 +1,5 @@
+const _ = require('lodash')
+
 const dummy = (blogs) => {
 	return 1
 }
@@ -11,21 +13,69 @@ const getTotalLikes = (blogs) => {
 }
 
 const getBlogWithMostLikes = (blogs) => {
-	const blogsMappedLikes = blogs.map(blog => blog.likes)
-	const highestLikes = blogsMappedLikes.sort((a, b) => b - a)[0]
-	console.log(blogsMappedLikes, highestLikes)
-
-	const blogWithMostLikes = blogs
+	const blogsByhighestLikes = blogs.sort((a, b) => b.likes - a.likes)
 		.map(blog => {
 			const { title, author, likes } = blog
 			return { title, author, likes }
 		})
-		.find(blog => blog.likes === highestLikes) || 0
-	return blogWithMostLikes
+
+	return blogsByhighestLikes[0] || 0
+}
+
+const mostBlogs = (blogs) => {
+	if (!blogs.length) return 0
+	const numberOfBlogs = []
+
+	// for each blog check if the author is already listed
+	// as an existing author, otherwise, add it to the list
+	// including its number of blogs
+	blogs.forEach(blog => {
+		const { author } = blog
+		const indexOfExistingAuthor = numberOfBlogs.findIndex(blog => blog.author === author)
+		if (indexOfExistingAuthor >= 0) {
+			numberOfBlogs[indexOfExistingAuthor].blogs += 1
+		} else {
+			numberOfBlogs.push({
+				author,
+				blogs: 1
+			})
+		}
+	})
+
+	// sort the array by the blogs prop
+	numberOfBlogs.sort((a, b) => b.blogs - a.blogs)
+	return numberOfBlogs[0]
+}
+
+const mostLikes = (blogs) => {
+	if (!blogs.length) return 0
+	const numberOfLikes = []
+
+	// for each blog check if the author is already listed
+	// as an existing author, otherwise, add it to the list
+	// including its total likes
+	blogs.forEach(blog => {
+		const { author, likes } = blog
+		const indexOfExistingAuthor = numberOfLikes.findIndex(blog => blog.author === author)
+		if (indexOfExistingAuthor >= 0) {
+			numberOfLikes[indexOfExistingAuthor].likes += likes
+		} else {
+			numberOfLikes.push({
+				author,
+				likes
+			})
+		}
+	})
+
+	// sort the array by the blogs prop
+	numberOfLikes.sort((a, b) => b.likes - a.likes)
+	return numberOfLikes[0]
 }
 
 module.exports = {
 	dummy,
 	getTotalLikes,
-	getBlogWithMostLikes
+	getBlogWithMostLikes,
+	mostBlogs,
+	mostLikes
 }
