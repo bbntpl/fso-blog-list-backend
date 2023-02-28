@@ -1,0 +1,9 @@
+POST http://localhost:3003/api/blogs HTTP/1.1
+Content-Type: application/json
+
+{
+	"title": "random title",
+	"author": "Jason DeLorean",
+	"url": "https://jasondelorean.blog/blog/random-title",
+	"likes": 1
+}
