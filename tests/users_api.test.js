@@ -4,34 +4,80 @@ const mongoose = require('mongoose')
 const User = require('../models/user')
 const helper = require('./test_helper')
 const app = require('../app')
+const Blog = require('../models/blog')
 
 const api = supertest(app)
 
 beforeEach(async () => {
+	await Blog.deleteMany({})
 	await User.deleteMany({})
-	await helper.createUser(helper.newUser)
+
+	const createdUser = await helper.createUser(helper.newUser)
+
+	const blogObjects = helper.initialBlogList
+		.map(blog => new Blog(Object.assign({ user: createdUser._id }, blog)))
+
+	const blogsIds = blogObjects.map(blog => blog._id)
+	const targetUser = await User.findById(createdUser._id)
+
+	targetUser.blogs = targetUser.blogs.concat(blogsIds)
+	targetUser.save()
+
+	const promiseArray = blogObjects.map(blog => blog.save())
+	await Promise.all(promiseArray)
 })
 
 describe('view users', () => {
+	test('must contain reference to blogs data', async () => {
+		const initialBlogList = await helper.blogsInDb()
+
+		const response = await api.get('/api/users')
+			.expect(200)
+			.expect('Content-Type', /application\/json/)
+
+		const users = response.body
+		const blogs = await helper.blogsInDb()
+		const blogsIds = blogs.map(blog => blog.id)
+
+		const areBlogsReferenceUser = users[0].blogs.every(blog => {
+			return () => blogsIds.contains(blog.id)
+		}) || false
+		expect(users[0].blogs).toHaveLength(initialBlogList.length)
+		expect(areBlogsReferenceUser).toBeTruthy()
+	})
+
 	test('user should contain blogs if applicable', async () => {
-		const users = await helper.usersInDb()
+		const initialBlogs = await helper.blogsInDb()
+		const usersBeforeChange = await helper.usersInDb()
 
 		const blogToBeAdded = {
 			title: 'view users',
 			author: 'view author',
 			url: 'view url',
 			likes: 55,
-			user: users[0].id
+			user: usersBeforeChange[0].id
 		}
-		
-		const createdBlog = await helper.createBlog(blogToBeAdded)
+
+		const blogResponse = await api.post('/api/blogs')
+			.send(blogToBeAdded)
+			.expect(201)
+			.expect('Content-Type', /application\/json/)
 
 		const usersResponse = await api.get('/api/users')
 			.expect(200)
 			.expect('Content-Type', /application\/json/)
 
-		expect(usersResponse[0].blogs).toHaveLength(1)
-		expect(usersResponse[0].blogs[0].id).toBe(createdBlog._id)
+		const usersAfterChange = usersResponse.body
+		const blogId = blogResponse.body.id
+
+		expect(usersAfterChange[0].blogs).toHaveLength(initialBlogs.length + 1)
+		expect(usersAfterChange[0].blogs.find(blog => blog.id === blogId))
+			.toEqual({
+				title: 'view users',
+				author: 'view author',
+				url: 'view url',
+				id: blogId
+			})
 	})
 })
 

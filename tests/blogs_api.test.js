@@ -5,15 +5,28 @@ const app = require('../app')
 const mongoose = require('mongoose')
 const Blog = require('../models/blog')
 const helper = require('./test_helper')
+const User = require('../models/user')
 
 const api = supertest(app)
 
 beforeEach(async () => {
+	await User.deleteMany({})
 	await Blog.deleteMany({})
 
+	const createdUser = await helper.createUser(helper.newUser)
+
 	const blogObjects = helper.initialBlogList
-		.map(blog => new Blog(blog))
-	const promiseArray = blogObjects.map(note => note.save())
+		.map(blog => new Blog(Object.assign({ user: createdUser._id }, blog)))
+
+	const promiseArray = blogObjects.map(blog => {
+		User.findById(createdUser._id)
+			.then(users => {
+				users.blogs = users.blogs.concat(blog._id)
+				users.save(function () { })
+			})
+
+		return blog.save()
+	})
 	await Promise.all(promiseArray)
 })
 
@@ -42,6 +55,21 @@ describe('accessing initial data to ', () => {
 			expect(blog.id).toBeDefined()
 			expect(blog._id).toBeUndefined()
 		})
+	})
+})
+
+describe('view blogs', () => {
+	test('must contain reference to user data', async () => {
+		const response = await api.get('/api/blogs')
+			.expect(200)
+			.expect('Content-Type', /application\/json/)
+
+		const blogs = response.body
+		const users = await helper.usersInDb()
+		const areBlogsReferenceUser = blogs.every(blog => {
+			return users[0].id === blog.user.id
+		})
+		expect(areBlogsReferenceUser).toBeTruthy()
 	})
 })
 
