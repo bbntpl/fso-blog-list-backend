@@ -4,7 +4,7 @@ const supertest = require('supertest')
 const app = require('../app')
 const mongoose = require('mongoose')
 const Blog = require('../models/blog')
-const helper = require('./helper')
+const helper = require('./test_helper')
 
 const api = supertest(app)
 
@@ -44,7 +44,6 @@ describe('accessing initial data to ', () => {
 		})
 	})
 })
-
 
 describe('addition of blog', () => {
 	test('successfully added the blog in the database', async () => {
@@ -89,6 +88,44 @@ describe('addition of blog', () => {
 		const updatedBlogs = await helper.blogsInDb()
 		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length)
 	})
+
+	test('succeed with status code 201 if the designated user exists', async () => {
+		const initialUsers = await helper.usersInDb()
+		const newUser = await helper.createUser({
+			username: 'bvrbrynntpl',
+			name: 'B.B.',
+			password: 'bahala_na'
+		})
+
+		const newUserInJson = JSON.stringify(newUser)
+		const userId = JSON.parse(newUserInJson).id
+
+		const updatedUsers = await helper.usersInDb()
+		const user = updatedUsers.find(user => user.id === userId)
+		expect(updatedUsers).toHaveLength(initialUsers.length + 1)
+
+		const blogToBeAdded = Object.assign(
+			user ? { user: user.id } : {},
+			helper.newBlog
+		)
+
+		const response = await api.post('/api/blogs')
+			.send(blogToBeAdded)
+			.expect(201)
+			.expect('Content-Type', /application\/json/)
+
+		const updatedBlogs = await helper.blogsInDb()
+		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length + 1)
+
+		const users = updatedBlogs.map(blog => blog.user
+			? blog.user.toString()
+			: undefined)
+		expect(users).toContain(response.body.user)
+	})
+
+	// test('fails with status code if the user does not exists', () => {
+
+	// })
 })
 
 describe('deletion of a blog', () => {
