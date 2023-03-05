@@ -1,36 +1,27 @@
 const supertest = require('supertest')
 const mongoose = require('mongoose')
 
-const User = require('../models/user')
 const helper = require('./test_helper')
 const app = require('../app')
-const Blog = require('../models/blog')
 
 const api = supertest(app)
 
 beforeEach(async () => {
-	// delete all documents from testing database
-	await Blog.deleteMany({})
-	await User.deleteMany({})
-
-	const createdUser = await helper.createUser(helper.newUser)
-
-	// create new array that includes reference to user id
-	const blogObjects = helper.initialBlogList
-		.map(blog => new Blog(Object.assign({ user: createdUser._id }, blog)))
-
-	// add the blog ids as a reference within the user document
-	const blogsIds = blogObjects.map(blog => blog._id)
-	const targetUser = await User.findById(createdUser._id)
-	targetUser.blogs = targetUser.blogs.concat(blogsIds)
-	targetUser.save()
-
-	// fulfill promise array
-	const promiseArray = blogObjects.map(blog => blog.save())
-	await Promise.all(promiseArray)
+	// initial database for testing
+	// first user always owns all of the initial blogs
+	await helper.initialDocsInDb()
 })
 
 describe('view users', () => {
+	test('successfuly fetched with get request', async () => {
+		const initialUsers = await helper.usersInDb()
+		const request = await api.get('/api/users')
+			.expect(200)
+			.expect('Content-Type', /application\/json/)
+
+		const requestedUsers = request.body
+		expect(requestedUsers).toHaveLength(initialUsers.length)
+	})
 	test('must contain reference to blogs data', async () => {
 		const initialBlogList = await helper.blogsInDb()
 
@@ -49,37 +40,23 @@ describe('view users', () => {
 		expect(areBlogsReferenceUser).toBeTruthy()
 	})
 
-	test('user should contain blogs if applicable', async () => {
+	test('user should contain blogs data within blog array if applicable', async () => {
 		const initialBlogs = await helper.blogsInDb()
-		const usersBeforeChange = await helper.usersInDb()
-
-		const blogToBeAdded = {
-			title: 'view users',
-			author: 'view author',
-			url: 'view url',
-			likes: 55,
-			user: usersBeforeChange[0].id
-		}
-
-		const blogResponse = await api.post('/api/blogs')
-			.send(blogToBeAdded)
-			.expect(201)
-			.expect('Content-Type', /application\/json/)
-
-		const usersResponse = await api.get('/api/users')
+		const request = await api.get('/api/users')
 			.expect(200)
 			.expect('Content-Type', /application\/json/)
 
-		const usersAfterChange = usersResponse.body
-		const blogId = blogResponse.body.id
-
-		expect(usersAfterChange[0].blogs).toHaveLength(initialBlogs.length + 1)
-		expect(usersAfterChange[0].blogs.find(blog => blog.id === blogId))
+		const initialUsers = request.body
+		const firstBlog = initialBlogs[0]
+		const firstBlogId = firstBlog.id.toString()
+		
+		expect(initialUsers[0].blogs).toHaveLength(initialBlogs.length)
+		expect(initialUsers[0].blogs.find(blog => blog.id.toString() === firstBlogId))
 			.toEqual({
-				title: 'view users',
-				author: 'view author',
-				url: 'view url',
-				id: blogId
+				title: firstBlog.title,
+				author: firstBlog.author,
+				url: firstBlog.url,
+				id: firstBlogId
 			})
 	})
 })

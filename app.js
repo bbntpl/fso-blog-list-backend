@@ -8,8 +8,7 @@ const {
 	unknownEndpoint,
 	errorHandler,
 	requestLogger,
-	tokenExtractor
-
+	tokenExtractor,
 } = require('./utils/middleware')
 const logger = require('./utils/logger')
 

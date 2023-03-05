@@ -1,9 +1,9 @@
 const logger = require('./logger')
 
-const requestLogger = (request, response, next) => {
-	logger.info('Method:', request.method)
-	logger.info('Path:  ', request.path)
-	logger.info('Body:  ', request.body)
+const requestLogger = (req, res, next) => {
+	logger.info('Method:', req.method)
+	logger.info('Path:  ', req.path)
+	logger.info('Body:  ', req.body)
 	logger.info('---')
 	next()
 }
@@ -12,12 +12,12 @@ const tokenExtractor = (req, res, next) => {
 	// code that extracts the token
 	const authorization = req.get('authorization')
 	if (authorization && authorization.startsWith('Bearer ')) {
+		req.token = authorization.substring(7)
+
 		logger.info(
 			'Token:  ',
-			authorization.replace('Bearer ', '')
+			req.token
 		)
-	} else {
-		logger.info('Token:  ', '')
 	}
 
 	next()

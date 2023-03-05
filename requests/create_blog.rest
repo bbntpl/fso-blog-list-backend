@@ -1,10 +1,10 @@
 POST http://localhost:3003/api/blogs HTTP/1.1
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImJ2cmJyeW5udHBsIiwiaWQiOiI2NDAzY2Q0NjQxZmZjYzhhZjE4NzVlMWUiLCJpYXQiOjE2Nzc5NzQ0MjN9.W7z9meOXM-Ytz_4mscQmgMS8AUkK1ghDn0sQw97NlIU
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImJ2cmJyeW5udHBsIiwiaWQiOiI2NDAzY2Q0NjQxZmZjYzhhZjE4NzVlMWUiLCJpYXQiOjE2NzgwNTQ5Mzd9.ndYvfTp_POungJtOy4u9IVmsT1hvuZRQ_Prp3QOdAKI
 
 {
-	"title": "tt",
-	"author": "dfsdfsf",
-	"url": "https://cadfcaca/blog/sdfdsfdsf",
-	"likes": 11111
+	"title": "dasd",
+	"author": "brabavfafvsdcfga",
+	"url": "https://cadcfada/blog/sdfdsfdsf",
+	"likes": 11163
 }
