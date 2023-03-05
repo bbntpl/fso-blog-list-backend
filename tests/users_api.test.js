@@ -9,20 +9,23 @@ const Blog = require('../models/blog')
 const api = supertest(app)
 
 beforeEach(async () => {
+	// delete all documents from testing database
 	await Blog.deleteMany({})
 	await User.deleteMany({})
 
 	const createdUser = await helper.createUser(helper.newUser)
 
+	// create new array that includes reference to user id
 	const blogObjects = helper.initialBlogList
 		.map(blog => new Blog(Object.assign({ user: createdUser._id }, blog)))
 
+	// add the blog ids as a reference within the user document
 	const blogsIds = blogObjects.map(blog => blog._id)
 	const targetUser = await User.findById(createdUser._id)
-
 	targetUser.blogs = targetUser.blogs.concat(blogsIds)
 	targetUser.save()
 
+	// fulfill promise array
 	const promiseArray = blogObjects.map(blog => blog.save())
 	await Promise.all(promiseArray)
 })

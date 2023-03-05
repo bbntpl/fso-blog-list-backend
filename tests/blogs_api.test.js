@@ -1,5 +1,3 @@
-
-
 const supertest = require('supertest')
 const app = require('../app')
 const mongoose = require('mongoose')
@@ -10,23 +8,24 @@ const User = require('../models/user')
 const api = supertest(app)
 
 beforeEach(async () => {
-	await User.deleteMany({})
+	// delete all documents from testing database
 	await Blog.deleteMany({})
+	await User.deleteMany({})
 
 	const createdUser = await helper.createUser(helper.newUser)
 
+	// create new array that includes reference to user id
 	const blogObjects = helper.initialBlogList
 		.map(blog => new Blog(Object.assign({ user: createdUser._id }, blog)))
 
-	const promiseArray = blogObjects.map(blog => {
-		User.findById(createdUser._id)
-			.then(users => {
-				users.blogs = users.blogs.concat(blog._id)
-				users.save(function () { })
-			})
+	// add the blog ids as a reference within the user document
+	const blogsIds = blogObjects.map(blog => blog._id)
+	const targetUser = await User.findById(createdUser._id)
+	targetUser.blogs = targetUser.blogs.concat(blogsIds)
+	targetUser.save()
 
-		return blog.save()
-	})
+	// fulfill promise array
+	const promiseArray = blogObjects.map(blog => blog.save())
 	await Promise.all(promiseArray)
 })
 
