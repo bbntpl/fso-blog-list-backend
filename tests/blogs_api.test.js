@@ -1,32 +1,13 @@
 const supertest = require('supertest')
 const app = require('../app')
 const mongoose = require('mongoose')
-const Blog = require('../models/blog')
 const helper = require('./test_helper')
 const User = require('../models/user')
 
 const api = supertest(app)
 
 beforeEach(async () => {
-	// delete all documents from testing database
-	await Blog.deleteMany({})
-	await User.deleteMany({})
-
-	const createdUser = await helper.createUser(helper.newUser)
-
-	// create new array that includes reference to user id
-	const blogObjects = helper.initialBlogList
-		.map(blog => new Blog(Object.assign({ user: createdUser._id }, blog)))
-
-	// add the blog ids as a reference within the user document
-	const blogsIds = blogObjects.map(blog => blog._id)
-	const targetUser = await User.findById(createdUser._id)
-	targetUser.blogs = targetUser.blogs.concat(blogsIds)
-	targetUser.save()
-
-	// fulfill promise array
-	const promiseArray = blogObjects.map(blog => blog.save())
-	await Promise.all(promiseArray)
+	await helper.initialDocsInDb()
 })
 
 describe('accessing initial data to ', () => {
@@ -38,17 +19,17 @@ describe('accessing initial data to ', () => {
 	})
 
 	test('return the correct amount of blogs', async () => {
-		const response = await api
+		const request = await api
 			.get('/api/blogs')
 
-		expect(response.body).toHaveLength(helper.initialBlogList.length)
+		expect(request.body).toHaveLength(helper.initialBlogList.length)
 	})
 
 	test('verify that unique identifier prop is defined as id, not _id', async () => {
-		const response = await api
+		const request = await api
 			.get('/api/blogs')
 
-		const blogs = response.body
+		const blogs = request.body
 
 		blogs.map(blog => {
 			expect(blog.id).toBeDefined()
@@ -59,11 +40,11 @@ describe('accessing initial data to ', () => {
 
 describe('view blogs', () => {
 	test('must contain reference to user data', async () => {
-		const response = await api.get('/api/blogs')
+		const request = await api.get('/api/blogs')
 			.expect(200)
 			.expect('Content-Type', /application\/json/)
 
-		const blogs = response.body
+		const blogs = request.body
 		const users = await helper.usersInDb()
 		const areBlogsReferenceUser = blogs.every(blog => {
 			return users[0].id === blog.user.id
@@ -74,31 +55,40 @@ describe('view blogs', () => {
 
 describe('addition of blog', () => {
 	test('successfully added the blog in the database', async () => {
-		const response = await api.post('/api/blogs')
+		const initialBlogsList = await helper.blogsInDb()
+
+		const { token } = await helper.loginUser(api)
+
+		const request = await api.post('/api/blogs')
 			.send(helper.newBlog)
+			.set({ 'Authorization': `Bearer ${token}` })
 			.expect(201)
 			.expect('Content-Type', /application\/json/)
 
 		const updatedBlogs = await helper.blogsInDb()
-		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length + 1)
+		expect(updatedBlogs).toHaveLength(initialBlogsList.length + 1)
 
 		const blogUrls = updatedBlogs.map(blog => blog.url)
-		expect(blogUrls).toContain(response.body.url)
+		expect(blogUrls).toContain(request.body.url)
 	})
 
 	test('must define likes prop with a default value is 0 if missing', async () => {
+		const initialBlogsList = await helper.blogsInDb()
 		const blogToBeAdded = Object.assign({}, helper.newBlog)
 		delete blogToBeAdded.likes
 
-		const response = await api.post('/api/blogs')
+		const { token } = await helper.loginUser(api)
+
+		const request = await api.post('/api/blogs')
 			.send(blogToBeAdded)
+			.set({ 'Authorization': `Bearer ${token}` })
 			.expect(201)
 			.expect('Content-Type', /application\/json/)
 
 		const updatedBlogs = await helper.blogsInDb()
 
-		expect(response.body.likes).toBe(0)
-		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length + 1)
+		expect(request.body.likes).toBe(0)
+		expect(updatedBlogs).toHaveLength(initialBlogsList.length + 1)
 	})
 
 	test('fails with status code 400 if data is invalid', async () => {
@@ -107,8 +97,11 @@ describe('addition of blog', () => {
 			likes: helper.newBlog.author
 		}
 
+		const { token } = await helper.loginUser(api)
+
 		await api
 			.post('/api/blogs')
+			.set({ 'Authorization': `Bearer ${token}` })
 			.send(blogToBeAdded)
 			.expect(400)
 
@@ -124,6 +117,11 @@ describe('addition of blog', () => {
 			password: 'bahala_na'
 		})
 
+		const { token } = await helper.loginUser(api, {
+			username: 'bvrbrynntpl',
+			password: 'bahala_na'
+		})
+
 		const newUserInJson = JSON.stringify(newUser)
 		const userId = JSON.parse(newUserInJson).id
 
@@ -136,8 +134,9 @@ describe('addition of blog', () => {
 			helper.newBlog
 		)
 
-		const response = await api.post('/api/blogs')
+		const request = await api.post('/api/blogs')
 			.send(blogToBeAdded)
+			.set({ 'Authorization': `Bearer ${token}` })
 			.expect(201)
 			.expect('Content-Type', /application\/json/)
 
@@ -147,29 +146,68 @@ describe('addition of blog', () => {
 		const users = updatedBlogs.map(blog => blog.user
 			? blog.user.toString()
 			: undefined)
-		expect(users).toContain(response.body.user)
+		expect(users).toContain(request.body.user)
 	})
-
-	// test('fails with status code if the user does not exists', () => {
-
-	// })
 })
 
 describe('deletion of a blog', () => {
-	test('succeeds with 204 status code if id is valid', async () => {
+	test('succeed with 204 status code if it\'s deleted by the designated user', async () => {
 		const blogs = await helper.blogsInDb()
 		const blogToDelete = blogs[0]
 
+		const designatedUser = await User.findById(blogToDelete.user.id)
+
+		const { token } = await helper.loginUser(api)
 		await api
 			.delete(`/api/blogs/${blogToDelete.id}`)
+			.set({ 'Authorization': `Bearer ${token}` })
 			.expect(204)
 
 		const updatedBlogs = await helper.blogsInDb()
 
 		const ids = updatedBlogs.map(blog => blog.id)
+		expect(token).not.toBeUndefined()
+		expect(designatedUser.id.toString()).toEqual(blogToDelete.user.toString())
 		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length - 1)
 		expect(ids).not.toContain(blogToDelete.id)
 	})
+
+	test('fails with 400 status code if action is attempted without token', async () => {
+		const blogs = await helper.blogsInDb()
+		const blogToDelete = blogs[0]
+
+		await api
+			.delete(`/api/blogs/${blogToDelete.id}`)
+			.expect(401)
+
+		const updatedBlogs = await helper.blogsInDb()
+
+		const ids = updatedBlogs.map(blog => blog.id)
+		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length)
+		expect(ids).toContain(blogToDelete.id)
+	})
+
+	test('fails with 401 status code if action is attempted by an invalid user', async () => {
+		const blogs = await helper.blogsInDb()
+		const blogToDelete = blogs[0]
+
+		const { token } = await helper.loginUser(api, {
+			username: 'username2',
+			password: 'password2'
+		})
+
+		await api
+			.delete(`/api/blogs/${blogToDelete.id}`)
+			.set({ 'Authorization': `Bearer ${token}` })
+			.expect(401)
+
+		const updatedBlogs = await helper.blogsInDb()
+
+		const ids = updatedBlogs.map(blog => blog.id)
+		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length)
+		expect(ids).toContain(blogToDelete.id)
+	})
+
 })
 
 describe('blog update', () => {
@@ -195,7 +233,6 @@ describe('blog update', () => {
 		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length)
 	})
 })
-
 
 afterAll(async () => {
 	await mongoose.connection.close()

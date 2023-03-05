@@ -59,6 +59,55 @@ const createUser = async ({ username, name, password }) => {
 	return await savedUser.save()
 }
 
+const loginUser = async (api, {
+	username = 'username',
+	password = 'password'
+} = {}) => {
+	const user = { username, password }
+
+	const request = await api.post('/api/login')
+		.send(user)
+		.expect(200)
+
+	return await {
+		token: request.body.token,
+		request
+	}
+}
+
+const initialDocsInDb = async () => {
+	// delete all documents from testing database
+	await Blog.deleteMany({})
+	await User.deleteMany({})
+
+	// create users to be saved in db
+	const createdUser = await createUser({
+		username: 'username',
+		name: 'name',
+		password: 'password'
+	})
+
+	await createUser({
+		username: 'username2',
+		name: 'name',
+		password: 'password2'
+	})
+
+	// create new array of blogs that includes reference to user id
+	const blogObjects = initialBlogList
+		.map(blog => new Blog(Object.assign({ user: createdUser._id }, blog)))
+
+	// add the blog ids as a reference within the user document
+	const blogsIds = blogObjects.map(blog => blog._id)
+	const targetUser = await User.findById(createdUser._id)
+	targetUser.blogs = targetUser.blogs.concat(blogsIds)
+	targetUser.save()
+
+	// fulfill promise array
+	const promiseArray = blogObjects.map(blog => blog.save())
+	await Promise.all(promiseArray)
+}
+
 module.exports = {
 	initialBlogList,
 	newBlog,
@@ -66,5 +115,7 @@ module.exports = {
 	blogsInDb,
 	usersInDb,
 	createUser,
-	createBlog
+	createBlog,
+	loginUser,
+	initialDocsInDb
 }
