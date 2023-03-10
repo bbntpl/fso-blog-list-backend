@@ -167,7 +167,7 @@ describe('deletion of a blog', () => {
 
 		const ids = updatedBlogs.map(blog => blog.id)
 		expect(token).not.toBeUndefined()
-		expect(designatedUser.id.toString()).toEqual(blogToDelete.user.toString())
+		expect(designatedUser._id.toString()).toEqual(blogToDelete.user.toString())
 		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length - 1)
 		expect(ids).not.toContain(blogToDelete.id)
 	})
@@ -211,25 +211,60 @@ describe('deletion of a blog', () => {
 })
 
 describe('blog update', () => {
+	test('must send/return the desired structure of object', async () => {
+		const blogs = await helper.blogsInDb()
+		const blogToUpdate = blogs[0]
+
+		const likesBeforeUpdate = blogToUpdate.likes
+		blogToUpdate.likes += 1
+
+		const { token } = await helper.loginUser(api)
+		expect(typeof blogToUpdate.user).toBe('object')
+		expect(blogToUpdate).toEqual({
+			title: blogToUpdate.title,
+			author: blogToUpdate.author,
+			likes: likesBeforeUpdate + 1,
+			url: blogToUpdate.url,
+			id: blogToUpdate.id,
+			user: blogToUpdate.user
+		})
+
+		const response = await api
+			.put(`/api/blogs/${blogToUpdate.id}`)
+			.send(blogToUpdate)
+			.set({ 'Authorization': `Bearer ${token}` })
+			.expect(200)
+			.expect('Content-Type', /application\/json/)
+
+		expect(response.body).toEqual({
+			...blogToUpdate,
+			user: blogToUpdate.user.toString()
+		})
+	})
 	test('same amount of data and specific blog contains new number of likes', async () => {
 		const blogs = await helper.blogsInDb()
 		const blogToUpdate = blogs[0]
 
-		const maxLikes = blogToUpdate.likes + 100
+		const maxLikes = 200
 
+		const { token } = await helper.loginUser(api)
+
+		// initial accumulation
+		blogToUpdate.likes += 1
 		while (blogToUpdate.likes < maxLikes) {
 			blogToUpdate.likes += 1
 		}
 
-		await api
+		const response = await api
 			.put(`/api/blogs/${blogToUpdate.id}`)
 			.send(blogToUpdate)
+			.set({ 'Authorization': `Bearer ${token}` })
 			.expect(200)
 			.expect('Content-Type', /application\/json/)
-
 		const updatedBlogs = await helper.blogsInDb()
 
-		expect(updatedBlogs[0].likes).toBe(maxLikes)
+		expect(updatedBlogs[0].likes).toBe(blogs[0] > maxLikes ? 201 : 200)
+		expect(response.body.likes).toBe(blogs[0] > maxLikes ? 201 : 200)
 		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length)
 	})
 })
