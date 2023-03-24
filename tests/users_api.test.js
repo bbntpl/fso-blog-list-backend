@@ -56,7 +56,8 @@ describe('view users', () => {
 				title: firstBlog.title,
 				author: firstBlog.author,
 				url: firstBlog.url,
-				id: firstBlogId
+				id: firstBlogId,
+				comments: firstBlog.comments
 			})
 	})
 })

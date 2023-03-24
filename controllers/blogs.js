@@ -17,7 +17,6 @@ blogsRouter.get('/', async (req, res) => {
 		username: 1,
 		name: 1
 	})
-
 	res.json(data)
 })
 
@@ -39,14 +38,12 @@ blogsRouter.post('/', async (req, res, next) => {
 		if (!decodedToken.id) {
 			return res.status(401).json({ error: 'token invalid' })
 		}
-
 		const user = await User.findById(decodedToken.id)
 		const blogObject = {
 			title: body.title,
 			author: body.author,
 			url: body.url,
-			likes: body.likes,
-			user: user._id
+			user: user._id,
 		}
 
 		const blog = new Blog(blogObject)
@@ -100,12 +97,31 @@ blogsRouter.put('/:id', async (req, res, next) => {
 
 		const updatedBlog = await Blog.findByIdAndUpdate(id, blog, { new: true })
 		res.json(updatedBlog)
-		
+
 	} catch (exception) {
 		next(exception)
 	}
+})
 
+blogsRouter.put('/:id/comments', async (req, res, next) => {
+	const id = req.params.id
+	const newComment = req.body.comment
 
+	try {
+		const decodedToken = jwt.verify(getTokenFrom(req), process.env.SECRET)
+		if (!decodedToken.id) {
+			return res.status(401).json({ error: 'token invalid' })
+		}
+
+		const updatedBlog = await Blog.findByIdAndUpdate(id,
+			// use the $push operator to add the new element to the array
+			{ $push: { comments: newComment } },
+			{ new: true, useFindAndModify: false })
+		res.json(updatedBlog)
+
+	} catch (exception) {
+		next(exception)
+	}
 })
 
 

@@ -7,13 +7,15 @@ const initialBlogList = [
 		title: 'Hiromi might be the best contemporary Jazz musician and we will remember her for decades',
 		author: 'Melody Wang',
 		url: 'https://popularblog123.com',
-		likes: 67
+		likes: 67,
+		comments: []
 	},
 	{
 		title: 'blog test by Jesus Christ',
 		author: 'Jesus Christ',
 		url: 'https://iamthesavior.com',
-		likes: 9
+		likes: 9,
+		comments: []
 	}
 ]
 
@@ -21,7 +23,8 @@ const newBlog = {
 	title: '123456',
 	author: 'abcdefg',
 	url: 'http://blablala.net',
-	likes: 42
+	likes: 42,
+	comments: []
 }
 
 const newUser = {
@@ -95,7 +98,13 @@ const initialDocsInDb = async () => {
 
 	// create new array of blogs that includes reference to user id
 	const blogObjects = initialBlogList
-		.map(blog => new Blog(Object.assign({ user: createdUser._id }, blog)))
+		.map(blog => new Blog(Object.assign({
+			user: {
+				id: createdUser._id,
+				username: createdUser.username,
+				name: createdUser.name
+			}
+		}, blog)))
 
 	// add the blog ids as a reference within the user document
 	const blogsIds = blogObjects.map(blog => blog._id)

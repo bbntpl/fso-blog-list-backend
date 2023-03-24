@@ -32,6 +32,8 @@ describe('accessing initial data to ', () => {
 		const blogs = request.body
 
 		blogs.map(blog => {
+			expect(blog.user.username).toBeDefined()
+			expect(blog.user.name).toBeDefined()
 			expect(blog.id).toBeDefined()
 			expect(blog._id).toBeUndefined()
 		})
@@ -72,7 +74,7 @@ describe('addition of blog', () => {
 		expect(blogUrls).toContain(request.body.url)
 	})
 
-	test('must define likes prop with a default value is 0 if missing', async () => {
+	test('must define props by default if they are missing', async () => {
 		const initialBlogsList = await helper.blogsInDb()
 		const blogToBeAdded = Object.assign({}, helper.newBlog)
 		delete blogToBeAdded.likes
@@ -88,6 +90,7 @@ describe('addition of blog', () => {
 		const updatedBlogs = await helper.blogsInDb()
 
 		expect(request.body.likes).toBe(0)
+		expect(request.body.comments).toHaveLength(0)
 		expect(updatedBlogs).toHaveLength(initialBlogsList.length + 1)
 	})
 
@@ -226,7 +229,8 @@ describe('blog update', () => {
 			likes: likesBeforeUpdate + 1,
 			url: blogToUpdate.url,
 			id: blogToUpdate.id,
-			user: blogToUpdate.user
+			user: blogToUpdate.user,
+			comments: blogToUpdate.comments
 		})
 
 		const response = await api
@@ -266,6 +270,25 @@ describe('blog update', () => {
 		expect(updatedBlogs[0].likes).toBe(blogs[0] > maxLikes ? 201 : 200)
 		expect(response.body.likes).toBe(blogs[0] > maxLikes ? 201 : 200)
 		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length)
+	})
+
+	test('adds comment successfully', async () => {
+		const blogs = await helper.blogsInDb()
+		const blogToUpdate = blogs[0]
+
+		const { token } = await helper.loginUser(api)
+
+		blogToUpdate.comments.push('I added a comment')
+
+		const response = await api
+			.put(`/api/blogs/${blogToUpdate.id}/comments`)
+			.send({ comment: 'I added a comment'})
+			.set({ 'Authorization': `Bearer ${token}` })
+			.expect(200)
+			.expect('Content-Type', /application\/json/)
+		const updatedBlogs = await helper.blogsInDb()
+		expect(updatedBlogs).toHaveLength(helper.initialBlogList.length)
+		expect(response.body.comments).toContain('I added a comment')
 	})
 })
 
